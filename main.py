@@ -4,10 +4,9 @@ from re import split
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from sklearn.preprocessing import MultiLabelBinarizer
 
-
-def splitMultipleData(df, column, spliter):
-    genres_list = [
+genres_list = [
         'Action',
         'Adventure',
         'Animation',
@@ -26,6 +25,8 @@ def splitMultipleData(df, column, spliter):
         'Thriller',
         'War',
         'Western', ]
+def splitMultipleData(df, column, spliter):
+
 
     # create a new DataFrame with columns for each language
     df_encoded = pd.DataFrame(columns=genres_list)
@@ -47,7 +48,6 @@ def splitMultipleData(df, column, spliter):
     df_final.drop(columns=[column], inplace=True)
 
     return df_final
-
 
 def movies_pre_processing():
     # no null values or duplicated rows
@@ -77,17 +77,8 @@ def movies_pre_processing():
 def users_pre_processing():
     # no null values or duplicated rows
     users = pd.read_csv('users.csv', sep=';', encoding='latin-1')
-    users.to_csv(r'users_test.csv', index=False)
+    # users.to_csv(r'users_test.csv', index=False)
     return users
-
-
-def convert_timestamp(timestamp):
-    return datetime.datetime.fromtimestamp(timestamp)
-
-
-def split_movie_name(str):
-    return split(r'(\d\d\d\d)', str)
-
 
 def ratings_pre_processing():
     # no null values or duplicated rows
@@ -106,8 +97,15 @@ def ratings_pre_processing():
     ratings['minute'] = pd.to_datetime(ratings['timestamp']).dt.minute
     ratings['second'] = pd.to_datetime(ratings['timestamp']).dt.second
     ratings = ratings.drop(['timestamp'], axis=1)
+    # ratings.to_csv(r'ratings_test.csv', index=False)
     return ratings
 
+
+def convert_timestamp(timestamp):
+    return datetime.datetime.fromtimestamp(timestamp)
+
+def split_movie_name(str):
+    return split(r'(\d\d\d\d)', str)
 
 def featureScaling(X, a, b):
     X = np.array(X)
@@ -116,28 +114,101 @@ def featureScaling(X, a, b):
         Normalized_X[:, i] = ((X[:, i] - min(X[:, i])) / (max(X[:, i]) - min(X[:, i]))) * (b - a) + a
     return Normalized_X
 
+def magic(df):
+    list = []
+    for gen in genres_list:
+        list.append(df.loc[gen])
+    return list
 
-# users = pd.read_csv('users.csv')
-# ratings = pd.read_csv('ratings.csv')
-# users = users_pre_processing()
+
+# ************************************************************* #
+
+movies = movies_pre_processing()
+ratings = ratings_pre_processing()
+users = users_pre_processing()
 
 
-moives = movies_pre_processing()
+# Split the genres into a list of individual genres
+# movies['genres'] = movies['genres'].str.split('|')
 
-# count = 1
-# error =0;
-# for i in moives['movieId']:
-#     if count != i:
-#         print("----------------")
-#         print("ERROR")
-#         print("i : ", i)
-#         moives['movieId'].fin
-#         print("Count : ", count)
-#         count = i+1
-#         print("----------------")
-#         error+=1
-#         continue
-#         # break
-#     count += 1
-# print(error)
-# moives.to_csv(r'moives_test.csv', index=False)
+# Create a MultiLabelBinarizer object
+# mlb = MultiLabelBinarizer()
+
+# Fit and transform the genres data with the MultiLabelBinarizer
+# genre_features = mlb.fit_transform(movies['genres'])
+
+# Convert the genre features matrix to a dataframe
+# genre_df = pd.DataFrame(genre_features, columns=mlb.classes_)
+
+# Concatenate the genre features dataframe with the original data
+# movies = pd.concat([movies, genre_df], axis=1)
+
+# Merge the movie data with the ratings data
+data = pd.merge(ratings, movies, on='movieId')
+
+# Merge the user data with the ratings data
+data = pd.merge(data, users, on='userId')
+
+# Convert the movie genre and year to string and concatenate them to create the content feature
+# + ' ' + movies['MovieYear'].astype(str)
+# data['binary_genres'] = str(data[genres_list].apply(lambda x: ''.join(str(x)), axis=1))
+# data['binary_genres']=[]
+
+# data['binary_genres'] = genres_list
+# data['binary_genres'] = data['binary_genres'].str.cat(magic(data), sep=' ')
+# data['binary_genres'] = pd.concat([data[col] for col in genres_list], axis=1)
+data[genres_list] = data[genres_list].astype(str)
+data['new_col'] = data[genres_list].apply(lambda x: ''.join(x), axis=1)
+# movies['content'] = content_features
+# data = magic(data)
+data.to_csv(r'data.csv', index=False)
+movies.to_csv(r'moives_test.csv', index=False)
+
+# genre_df.to_csv(r'concat.csv',index=False)
+
+
+# # Split the genres into a list of individual genres
+# movies['genres'] = movies['genres'].str.split('|')
+#
+# # Convert the list of genres to a string with spaces between each genre
+# movies['genres'] = movies['genres'].apply(lambda x: ' '.join(x))
+#
+# # Merge the movie data with the ratings data
+# data = pd.merge(ratings, movies, on='movieId')
+#
+# # Convert the movie genre and year to string and concatenate them to create the content feature
+# data['content'] = data['genres'].astype(str) + ' ' + data['MovieYear'].astype(str)
+#
+# # Merge the user data with the ratings data
+# data = pd.merge(data, users, on='userId')
+
+
+#
+# movies['genres'] = movies['genres'].str.split('|')
+#
+# mlb = MultiLabelBinarizer()
+#
+# # Fit and transform the genres data with the MultiLabelBinarizer
+# genre_features = mlb.fit_transform(movies['genres'])
+#
+# # Convert the genre features matrix to a dataframe
+# genre_df = pd.DataFrame(genre_features, columns=mlb.classes_)
+#
+# # Concatenate the genre features dataframe with the original data
+# movies = pd.concat([movies, genre_df], axis=1)
+#
+#
+# # Merge the movie data with the ratings data
+# data = pd.merge(ratings, movies, on='movieId')
+#
+
+
+# Convert the movie genre and year to string and concatenate them to create the content feature
+# data['content'] = data['genres'].astype(str) + ' ' + data['MovieYear'].astype(str)
+# data['content'] = movies['genres'].astype(str) + ' ' + movies['MovieYear'].astype(str)
+
+
+# Merge the user data with the ratings data
+# data = pd.merge(data, users, on='userId')
+
+
