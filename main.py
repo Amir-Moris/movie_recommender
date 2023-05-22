@@ -3,14 +3,16 @@ from re import split
 
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from matplotlib import pyplot as plt
 from scipy.sparse import csr_matrix
-from sklearn.model_selection import train_test_split
+from sklearn import metrics
+from sklearn.metrics import r2_score
 from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import MultiLabelBinarizer
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+import seaborn as sns
 
 genres_list = [
     'Action',
@@ -210,7 +212,7 @@ def item_based_model(movies, movie_name):
     plt.axhline(y=10, color='r')
     plt.xlabel('MovieId')
     plt.ylabel('No. of users voted')
-    # plt.show()
+    plt.show()
 
     final_dataset = final_dataset.loc[no_user_voted[no_user_voted > 40].index, :]
     f, ax = plt.subplots(1, 1, figsize=(16, 4))
@@ -218,7 +220,7 @@ def item_based_model(movies, movie_name):
     plt.axhline(y=50, color='r')
     plt.xlabel('UserId')
     plt.ylabel('No. of votes by user')
-    # plt.show()
+    plt.show()
     final_dataset = final_dataset.loc[:, no_movies_voted[no_movies_voted > 90].index]
 
     csr_data = csr_matrix(final_dataset.values)
@@ -249,9 +251,56 @@ def get_movie_recommendation(final_dataset, knn, csr_data, movie_name='Toy Story
         df.index = df.index + 1
         print("The Recommendation based on Movie :", movie_list.iloc[0]['title'])
         df = df.drop(['index'], axis=1)
+
+        # Create a bar chart of the top 10 recommended movies
+        plt.barh(range(len(df)), df['Distance'], align='center')
+        plt.yticks(range(len(df)), df['Title'])
+        plt.xlabel('Distance')
+        plt.ylabel('Movie Title')
+        plt.title('Top 10 Recommended Movies')
+        plt.show()
+
         return df
     else:
         return "No movies found. Please check your input"
+
+
+def predict_user_movie_rating_linear():
+    merged_data = ratings.merge(movies, on='movieId')
+    merged_data = merged_data.merge(users, on='userId')
+
+    merged_data.drop(['movieId', 'userId', 'zip-code', 'title', 'occupation'], axis=1, inplace=True)
+
+    merged_data['genres'] = merged_data['genres'].apply(lambda x: '|'.join(x))
+    genres = merged_data['genres'].str.get_dummies(sep='|')
+    merged_data = pd.concat([merged_data, genres], axis=1)
+
+    merged_data = pd.get_dummies(merged_data, columns=['gender'])
+
+    corr = merged_data.corr()
+    top_features = corr.index[abs(corr['rating']) >= 0.05]
+    merged_data = merged_data[top_features]
+
+    X = merged_data.drop('rating', axis=1)
+    y = merged_data['rating']
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Initialize and train the regression model
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+
+    # Predict ratings for the test set
+    y_pred = model.predict(X_test)
+
+    # Evaluate the model
+    mse = metrics.mean_squared_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
+
+    print('Mean Square Error For Linear Regression:', mse)
+    print('R2 score For Linear Regression:', r2)
+
+    return
 
 
 def predict_user_movie_rating(user_id, movie_id):
@@ -285,7 +334,6 @@ def predict_user_movie_rating(user_id, movie_id):
 
     return
 
-
 # ************************************************************* #
 
 
@@ -293,29 +341,23 @@ movies = movies_pre_processing()
 ratings = ratings_pre_processing()
 users = users_pre_processing()
 
-user_id = 2
+predict_user_movie_rating_linear()
 
-# model = int(input("Choose model: \n1.content-based \n2.item-based\n "))
-# movie = str(input("Enter movie name\n"))
-model = 3
 movie = "Client, The (1994)"
 genres = "Action"
-if model == 1:
-    ret = content_based_model(movies, ratings, movie)
-    #
-    # newDf = pd.DataFrame(ret)
-    # plt.bar(newDf['total_reviews'], newDf['Similarity'], color='green')
-    # plt.xlabel('Movie Title')
-    # plt.ylabel('Total Reviews')
-    # plt.title('Top-rated Movies based on Total Reviews')
-    # plt.xticks(rotation=90)  # Rotate x-axis labels for better readability
-    # plt.show()
-    print(ret)
-elif model == 2:
-    ret = item_based_model(movies, movie)
-    print(ret)
+print("Model_1")
+ret = content_based_model(movies, ratings, movie)
+print(ret)
+print("###############")
 
-else:
-    print(content_based_model2(movie, genres))
+print("Model_2")
+content_based_model2(movie, genres)
+print("###############")
 
-# predict_user_movie_rating(1193, 1)
+print("Model_3")
+movie = "Toy Story"
+ret = item_based_model(movies, movie)
+print(ret)
+
+
+predict_user_movie_rating(1193, 1)
