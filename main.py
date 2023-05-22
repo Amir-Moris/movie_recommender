@@ -9,6 +9,8 @@ from scipy.sparse import csr_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import MultiLabelBinarizer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
 
 genres_list = [
     'Action',
@@ -93,12 +95,12 @@ def ratings_pre_processing():
     ratings['timestamp'] = ratings['timestamp'].apply(convert_timestamp)
 
     # split day column from date
-    ratings['Day'] = pd.to_datetime(ratings['timestamp']).dt.day
-    ratings['Month'] = pd.to_datetime(ratings['timestamp']).dt.month
-    ratings['Year'] = pd.to_datetime(ratings['timestamp']).dt.year
-    ratings['hour'] = pd.to_datetime(ratings['timestamp']).dt.hour
-    ratings['minute'] = pd.to_datetime(ratings['timestamp']).dt.minute
-    ratings['second'] = pd.to_datetime(ratings['timestamp']).dt.second
+    # ratings['Day'] = pd.to_datetime(ratings['timestamp']).dt.day
+    # ratings['Month'] = pd.to_datetime(ratings['timestamp']).dt.month
+    # ratings['Year'] = pd.to_datetime(ratings['timestamp']).dt.year
+    # ratings['hour'] = pd.to_datetime(ratings['timestamp']).dt.hour
+    # ratings['minute'] = pd.to_datetime(ratings['timestamp']).dt.minute
+    # ratings['second'] = pd.to_datetime(ratings['timestamp']).dt.second
 
     ratings = ratings.drop(['timestamp'], axis=1)
     ratings.to_csv(r'ratings_test.csv', index=False)
@@ -107,6 +109,7 @@ def ratings_pre_processing():
 
 def convert_timestamp(timestamp):
     return datetime.datetime.fromtimestamp(timestamp)
+
 
 def split_movie_name(str):
     return split(r'(\d\d\d\d)', str)
@@ -118,6 +121,33 @@ def featureScaling(X, a, b):
     for i in range(X.shape[1]):
         Normalized_X[:, i] = ((X[:, i] - min(X[:, i])) / (max(X[:, i]) - min(X[:, i]))) * (b - a) + a
     return Normalized_X
+
+
+def content_based_model2(movie_title, movie_genres):
+    movies['genres'] = movies['genres'].apply(lambda x: ' '.join(x))
+    movies['text'] = movies['title'] + " " + movies['genres']
+
+    tfidf_vec = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = tfidf_vec.fit_transform(movies['text'])
+    cos_sim = cosine_similarity(tfidf_matrix)
+
+    movie_text = movie_title + movie_genres
+    movie_tfidf = tfidf_vec.transform([movie_text])
+
+    # compute similarity
+    sim_scores = cosine_similarity(movie_tfidf, tfidf_matrix)
+    sim_scores = sim_scores.argsort()[0][::-1][1:11]
+
+    # get titles
+    recommended_movies = movies.iloc[sim_scores]['title']
+    print(recommended_movies.head(10))
+
+    # create a bar chart of the top 10 similar movies
+    plt.barh(range(len(recommended_movies)), sim_scores[::-1])
+    plt.yticks(range(len(recommended_movies)), recommended_movies[::-1])
+    plt.xlabel('Similarity Score')
+    plt.title('Top 10 Similar Movies')
+    plt.show()
 
 
 def content_based_model(movies, ratings, movie_name='Client, The (1994)'):
@@ -148,13 +178,12 @@ def content_based_model(movies, ratings, movie_name='Client, The (1994)'):
         similarity_scores.sort_values('Similarity', ascending=False)
 
         # get the top 10 similar movies
-        top_movies = similarity_scores[similarity_scores['total_reviews'] >= 80].sort_values('Similarity', ascending=False).head(10)
-
+        top_movies = similarity_scores[similarity_scores['total_reviews'] >= 80].sort_values('Similarity',
+                                                                                             ascending=False).head(10)
 
         # create a bar chart of the top 10 similar movies
         fig, ax = plt.subplots()
         ax.barh(top_movies.index, top_movies['Similarity'], align='center')
-
         # set the y-axis label and title
         ax.set_ylabel("Movie Title")
         ax.set_title("Top 10 Similar Movies to: " + movie_name)
@@ -162,15 +191,10 @@ def content_based_model(movies, ratings, movie_name='Client, The (1994)'):
         # #show the plot
         plt.show()
 
-
         return top_movies.iloc[1:11]
     except Exception as e:
         print(e)
         return "No movies found. Please check your input"
-
-
-
-
 
 
 def item_based_model(movies, movie_name):
@@ -273,8 +297,9 @@ user_id = 2
 
 # model = int(input("Choose model: \n1.content-based \n2.item-based\n "))
 # movie = str(input("Enter movie name\n"))
-model = 1
+model = 3
 movie = "Client, The (1994)"
+genres = "Action"
 if model == 1:
     ret = content_based_model(movies, ratings, movie)
     #
@@ -286,8 +311,11 @@ if model == 1:
     # plt.xticks(rotation=90)  # Rotate x-axis labels for better readability
     # plt.show()
     print(ret)
-else:
+elif model == 2:
     ret = item_based_model(movies, movie)
     print(ret)
 
-predict_user_movie_rating(1193, 1)
+else:
+    print(content_based_model2(movie, genres))
+
+# predict_user_movie_rating(1193, 1)
