@@ -90,15 +90,16 @@ def ratings_pre_processing():
     print(ratings.isna().sum())
     print(ratings.duplicated().sum())
     # ratings.drop([timestamp])
-    # ratings['timestamp'] = ratings['timestamp'].apply(convert_timestamp)
+    ratings['timestamp'] = ratings['timestamp'].apply(convert_timestamp)
 
     # split day column from date
-    # ratings['Day'] = pd.to_datetime(ratings['timestamp']).dt.day
-    # ratings['Month'] = pd.to_datetime(ratings['timestamp']).dt.month
-    # ratings['Year'] = pd.to_datetime(ratings['timestamp']).dt.year
-    # ratings['hour'] = pd.to_datetime(ratings['timestamp']).dt.hour
-    # ratings['minute'] = pd.to_datetime(ratings['timestamp']).dt.minute
-    # ratings['second'] = pd.to_datetime(ratings['timestamp']).dt.second
+    ratings['Day'] = pd.to_datetime(ratings['timestamp']).dt.day
+    ratings['Month'] = pd.to_datetime(ratings['timestamp']).dt.month
+    ratings['Year'] = pd.to_datetime(ratings['timestamp']).dt.year
+    ratings['hour'] = pd.to_datetime(ratings['timestamp']).dt.hour
+    ratings['minute'] = pd.to_datetime(ratings['timestamp']).dt.minute
+    ratings['second'] = pd.to_datetime(ratings['timestamp']).dt.second
+
     ratings = ratings.drop(['timestamp'], axis=1)
     ratings.to_csv(r'ratings_test.csv', index=False)
     return ratings
@@ -106,7 +107,6 @@ def ratings_pre_processing():
 
 def convert_timestamp(timestamp):
     return datetime.datetime.fromtimestamp(timestamp)
-
 
 def split_movie_name(str):
     return split(r'(\d\d\d\d)', str)
@@ -146,12 +146,31 @@ def content_based_model(movies, ratings, movie_name='Client, The (1994)'):
         similarity_scores.dropna(inplace=True)
         # sort by highest to lowest similarity
         similarity_scores.sort_values('Similarity', ascending=False)
-        ret = similarity_scores[similarity_scores['total_reviews'] >= 80].sort_values('Similarity',
-                                                                                      ascending=False).head(10).iloc[
-              1:11]
-        return ret
-    except:
+
+        # get the top 10 similar movies
+        top_movies = similarity_scores[similarity_scores['total_reviews'] >= 80].sort_values('Similarity', ascending=False).head(10)
+
+
+        # create a bar chart of the top 10 similar movies
+        fig, ax = plt.subplots()
+        ax.barh(top_movies.index, top_movies['Similarity'], align='center')
+
+        # set the y-axis label and title
+        ax.set_ylabel("Movie Title")
+        ax.set_title("Top 10 Similar Movies to: " + movie_name)
+
+        # #show the plot
+        plt.show()
+
+
+        return top_movies.iloc[1:11]
+    except Exception as e:
+        print(e)
         return "No movies found. Please check your input"
+
+
+
+
 
 
 def item_based_model(movies, movie_name):
@@ -250,16 +269,25 @@ movies = movies_pre_processing()
 ratings = ratings_pre_processing()
 users = users_pre_processing()
 
-# user_id = 2
-#
+user_id = 2
+
 # model = int(input("Choose model: \n1.content-based \n2.item-based\n "))
 # movie = str(input("Enter movie name\n"))
-#
-# if model == 1:
-#     ret = content_based_model(movies, ratings, movie)
-#     print(ret)
-# else:
-#     ret = item_based_model(movies, movie)
-#     print(ret)
+model = 1
+movie = "Client, The (1994)"
+if model == 1:
+    ret = content_based_model(movies, ratings, movie)
+    #
+    # newDf = pd.DataFrame(ret)
+    # plt.bar(newDf['total_reviews'], newDf['Similarity'], color='green')
+    # plt.xlabel('Movie Title')
+    # plt.ylabel('Total Reviews')
+    # plt.title('Top-rated Movies based on Total Reviews')
+    # plt.xticks(rotation=90)  # Rotate x-axis labels for better readability
+    # plt.show()
+    print(ret)
+else:
+    ret = item_based_model(movies, movie)
+    print(ret)
 
 predict_user_movie_rating(1193, 1)
